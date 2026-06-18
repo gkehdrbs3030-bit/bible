@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1c1b1a">
+<title>말씀 암송</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --bg:#f4f2ec; --surface:#ffffff; --surface2:#eceae2;
+    --text:#1c1b1a; --text2:#6b6a64; --text3:#9a988f;
+    --line:#e0ddd3; --line2:#cecabe;
+    --accent:#3a6ea5; --accent-bg:#e6f0fa;
+    --weak:#a3402d; --weak-bg:#faece8;
+    --strong:#2f6d4f; --strong-bg:#e4f1ea;
+    --radius:16px; --radius-sm:10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#1c1b1a; --surface:#26241f; --surface2:#322f29;
+      --text:#f4f2ec; --text2:#b4b2a9; --text3:#7d7b73;
+      --line:#3a372f; --line2:#4a463c;
+      --accent:#7fb0e0; --accent-bg:#1e3147;
+      --weak:#e0998a; --weak-bg:#3a221c;
+      --strong:#8fc7a8; --strong-bg:#1d3327;
+    }
+  }
+  html, body {
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100%;
+    overscroll-behavior:none;
+  }
+  body { display:flex; flex-direction:column; min-height:100vh; min-height:100dvh; }
+  .wrap { width:100%; max-width:560px; margin:0 auto; padding:14px 18px 26px; display:flex; flex-direction:column; flex:1; }
+
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .app-title { font-size:17px; font-weight:600; }
+  .reset-btn {
+    background:transparent; border:none; color:var(--text3); font-size:13px;
+    padding:6px 8px; cursor:pointer; font-family:inherit;
+  }
+
+  /* level switcher */
+  .levels { display:flex; gap:8px; margin-bottom:10px; }
+  .levels button {
+    flex:1; border:0.5px solid var(--line2); background:var(--surface); color:var(--text2);
+    font-size:14px; font-weight:600; padding:11px 0; border-radius:var(--radius-sm); cursor:pointer;
+    font-family:inherit; transition:all 0.15s;
+  }
+  .levels button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  @media (prefers-color-scheme: dark) {
+    .levels button.on { color:#0e1c2c; }
+  }
+  .level-sub { font-size:12px; color:var(--text3); text-align:center; margin-bottom:14px; }
+
+  .modes { display:flex; gap:8px; background:var(--surface2); padding:4px; border-radius:var(--radius-sm); margin-bottom:16px; }
+  .modes button {
+    flex:1; border:none; background:transparent; color:var(--text2);
+    font-size:13.5px; font-weight:500; padding:9px 0; border-radius:7px; cursor:pointer;
+    font-family:inherit; transition:all 0.15s;
+  }
+  .modes button.on { background:var(--surface); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+
+  .meta { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .count { font-size:13px; color:var(--text2); font-variant-numeric:tabular-nums; }
+  .blocktag { font-size:12px; font-weight:500; padding:3px 11px; border-radius:99px; background:var(--accent-bg); color:var(--accent); }
+
+  .bar-track { height:6px; background:var(--surface2); border-radius:99px; overflow:hidden; margin-bottom:18px; }
+  .bar-fill { height:100%; width:4%; background:var(--accent); border-radius:99px; transition:width 0.3s ease; }
+
+  .card {
+    background:var(--surface); border:0.5px solid var(--line);
+    border-radius:var(--radius); padding:24px 22px;
+    flex:1; display:flex; flex-direction:column;
+    cursor:pointer; user-select:none; -webkit-user-select:none;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+    min-height:300px; position:relative; overflow:hidden;
+  }
+  .card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .lesson-num { font-size:15px; font-weight:600; color:var(--accent); letter-spacing:0.3px; }
+  .weak-flag { font-size:12px; color:var(--weak); font-weight:500; display:none; }
+
+  .prompt-face { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+  .big-num { font-size:54px; font-weight:700; color:var(--text); line-height:1.05; }
+  .big-num span { font-size:24px; font-weight:500; color:var(--text2); }
+  .tap-hint { margin-top:22px; font-size:13px; color:var(--text3); padding:0 10px; line-height:1.5; }
+
+  .answer-face { display:none; flex-direction:column; }
+  .ans-title { font-size:20px; font-weight:600; line-height:1.5; word-break:keep-all; }
+  .ans-verse-label { font-size:12px; color:var(--text2); margin-bottom:6px; }
+  .ans-verse { font-size:17px; font-weight:500; line-height:1.65; color:var(--text); word-break:keep-all; }
+  .ans-divider { border:none; border-top:0.5px dashed var(--line2); margin:16px 0; }
+
+  .conf-row { display:none; gap:10px; margin-top:14px; }
+  .conf-row button {
+    flex:1; padding:13px 0; border-radius:var(--radius-sm); font-size:14px; font-weight:600;
+    cursor:pointer; font-family:inherit; border:0.5px solid var(--line2); background:var(--surface);
+    transition:transform 0.08s;
+  }
+  .conf-row button:active { transform:scale(0.97); }
+  .btn-weak { color:var(--weak) !important; border-color:var(--weak) !important; background:var(--weak-bg) !important; }
+  .btn-strong { color:var(--strong) !important; border-color:var(--strong) !important; background:var(--strong-bg) !important; }
+
+  .nav-row { display:flex; gap:10px; margin-top:14px; }
+  .nav-row button {
+    flex:1; padding:14px 0; border-radius:var(--radius-sm); font-size:15px; font-weight:500;
+    cursor:pointer; font-family:inherit; border:0.5px solid var(--line2);
+    background:var(--surface); color:var(--text); transition:transform 0.08s;
+  }
+  .nav-row button:active { transform:scale(0.97); }
+  .nav-row button:disabled { opacity:0.35; cursor:default; }
+
+  .dots { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:18px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--line2); transition:all 0.2s; cursor:pointer; }
+  .dot.cur { width:11px; height:11px; background:var(--accent); }
+  .dot.weak { background:var(--weak); }
+  .dot.done { background:var(--strong); }
+
+  .stats { display:flex; gap:10px; margin-top:18px; }
+  .stat { flex:1; background:var(--surface2); border-radius:var(--radius-sm); padding:11px 12px; text-align:center; }
+  .stat-num { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat-num.s-done { color:var(--strong); }
+  .stat-num.s-weak { color:var(--weak); }
+  .stat-label { font-size:11px; color:var(--text2); margin-top:2px; }
+
+  .empty { display:none; text-align:center; padding:50px 20px; color:var(--text2); font-size:14px; line-height:1.6; }
+  .empty strong { color:var(--strong); }
+
+  .toast {
+    position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px);
+    background:var(--text); color:var(--bg); font-size:13px; padding:9px 16px; border-radius:99px;
+    opacity:0; pointer-events:none; transition:all 0.25s; z-index:10;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="app-title">말씀 암송</div>
+    <button class="reset-btn" id="resetBtn">이 단계 초기화</button>
+  </header>
+
+  <div class="levels">
+    <button id="lvElem">초등</button>
+    <button id="lvMid" class="on">중등</button>
+    <button id="lvHigh">고등</button>
+  </div>
+  <div class="level-sub" id="levelSub">중등 · 25과</div>
+
+  <div class="modes">
+    <button id="mSeq" class="on">순서대로</button>
+    <button id="mShuffle">순서 섞기</button>
+    <button id="mReview">약한 과만</button>
+  </div>
+
+  <div class="meta">
+    <span class="count" id="count">1 / 25</span>
+    <span class="blocktag" id="blocktag">블록 1</span>
+  </div>
+  <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+
+  <div class="card" id="card">
+    <div class="card-top">
+      <span class="lesson-num" id="lnum">제1과</span>
+      <span class="weak-flag" id="wflag">● 복습 표시됨</span>
+    </div>
+
+    <div class="prompt-face" id="promptFace">
+      <div class="big-num" id="bignum">1<span>과</span></div>
+      <div class="tap-hint" id="tapHint">제목과 성구를 떠올린 뒤 탭하세요</div>
+    </div>
+
+    <div class="answer-face" id="answerFace">
+      <div class="ans-title" id="atitle"></div>
+      <hr class="ans-divider" id="adiv">
+      <div class="ans-verse-label" id="averseLabel">성구</div>
+      <div class="ans-verse" id="averse"></div>
+    </div>
+  </div>
+
+  <div class="conf-row" id="confRow">
+    <button class="btn-weak" id="btnWeak">더 봐야 해</button>
+    <button class="btn-strong" id="btnStrong">외웠어</button>
+  </div>
+
+  <div class="nav-row">
+    <button id="btnPrev">← 이전</button>
+    <button id="btnNext">다음 →</button>
+  </div>
+
+  <div class="dots" id="dots"></div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num s-done" id="statDone">0</div><div class="stat-label">외운 과</div></div>
+    <div class="stat"><div class="stat-num s-weak" id="statWeak">0</div><div class="stat-label">복습할 과</div></div>
+    <div class="stat"><div class="stat-num" id="statLeft">25</div><div class="stat-label">남은 과</div></div>
+  </div>
+
+  <div class="empty" id="empty">
+    복습할 과가 없어요.<br>카드를 보다가 <strong>더 봐야 해</strong>로 표시한 과가 여기 모입니다.
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== 데이터: 세 단계 ===== */
+const LEVELS = {
+  elem: {
+    name: "초등", hasVerse: false,
+    items: [
+      {id:"1", t:"두 가지 신(하나님과 사단)"},
+      {id:"2", t:"성경 상식"},
+      {id:"3", t:"천국 비밀 비유"},
+      {id:"4", t:"비유한 씨·밭·나무·새"},
+      {id:"5", t:"비유한 양식과 누룩"},
+      {id:"6", t:"비유한 그릇·저울·지팡이"},
+      {id:"7", t:"비유한 불·향로·가마"},
+      {id:"8", t:"비유한 빛·등대와 소경·귀머거리·예복"},
+      {id:"9", t:"비유한 보물·부자"},
+      {id:"10", t:"비유한 물·샘·강"},
+      {id:"11", t:"비유한 바다·어부·그물·고기·배"},
+      {id:"12", t:"비유한 짐승과 머리·뿔·꼬리"},
+      {id:"13", t:"비유한 어린 양의 피와 살"},
+      {id:"14", t:"비유한 새 포도주와 새 부대와 감람유"},
+      {id:"15", t:"비유한 산·돌·우상"},
+      {id:"16", t:"비유한 인(표)·나팔·노래"},
+      {id:"17", t:"비유한 생물과 바람"},
+      {id:"18", t:"비유한 죽음과 부활"},
+      {id:"19", t:"비유한 신랑·신부·과부·고아"},
+      {id:"20", t:"비유한 예루살렘과 바벨론과의 전쟁"},
+      {id:"21", t:"비유한 하늘·땅, 해·달·별"},
+      {id:"22", t:"세 가지 이스라엘"},
+      {id:"23", t:"세 가지의 천국과 비유한 열쇠"},
+      {id:"24", t:"거듭나는 성장 과정과 인내의 믿음"}
+    ]
+  },
+  mid: {
+    name: "중등", hasVerse: true, blocks: true,
+    items: [
+      {id:"1", b:1, t:"하나님의 언약, 아브라함과 계시록", v:"창15장(출12장), 요19:30, 계21:6"},
+      {id:"2", b:1, t:"하늘 영계대로 창조된 육계의 천국", v:"출25장, 마6:10, 계4장, 계21장"},
+      {id:"3", b:1, t:"선민의 배도, 멸망, 구원의 순리", v:"사1:1~2:4, 살후2장"},
+      {id:"4", b:1, t:"구약과 신약의 봉한 책과 계시", v:"사29장, 겔3장, 계5장, 계10장"},
+      {id:"5", b:1, t:"언약을 지킨 자와 지키지 않은 자의 결과", v:"신28장(렘31장, 히8장, 계7장)"},
+      {id:"6", b:2, t:"구약과 신약의 약속의 목자", v:"마1장, 계1:1~3, 계2~3장, 계10장, 계22:16"},
+      {id:"7", b:2, t:"주기도문의 참뜻", v:"마6장, 요8장"},
+      {id:"8", b:2, t:"나라의 본 자손과 천국에 앉은 자", v:"마8:11~12(눅13:28~30), 계6~7장"},
+      {id:"9", b:2, t:"천국 비밀 두 가지 씨와 추수", v:"마13장(계14장)"},
+      {id:"10", b:2, t:"주 재림과 말세의 징조", v:"마24장, 요8장"},
+      {id:"11", b:3, t:"어린양의 혼인 잔치와 등과 기름", v:"마25장(마22장, 눅14장, 계19장)"},
+      {id:"12", b:3, t:"피로 세운 예수님의 새 언약", v:"눅22장(계5장, 계7장)"},
+      {id:"13", b:3, t:"태초의 말씀과 거듭남", v:"요1장, 요3장"},
+      {id:"14", b:3, t:"하나님의 목적", v:"렘31장, 마13장, 눅22장, 계7장, 계19장, 계21장"},
+      {id:"15", b:3, t:"하나님의 양식과 사단의 양식", v:"요6장(계2장, 계17~18장)"},
+      {id:"16", b:4, t:"예수님이 예비하신 처소와 진리의 성령 보혜사", v:"요14장, 요16장"},
+      {id:"17", b:4, t:"생명나무와 선악나무의 실체", v:"요15장(창2~3장, 단4장, 계22장)"},
+      {id:"18", b:4, t:"죄 사함을 이루는 예수님의 피의 효력", v:"히10장"},
+      {id:"19", b:4, t:"마지막 일곱째 나팔 소리", v:"고전15:51~54(계10:7, 계11:15)"},
+      {id:"20", b:4, t:"하나님의 유업을 받는 아들", v:"갈4:1~7, 계21:7"},
+      {id:"21", b:5, t:"핍박과 승리의 나라 신천지", v:"요8장(마10장, 마25장, 요16장, 계7장, 계14장, 계21장)"},
+      {id:"22", b:5, t:"지켜야 할 새 언약의 법", v:"히8장"},
+      {id:"23", b:5, t:"도의 초보와 완전한 곳", v:"히5:12~14, 히6:1~8"},
+      {id:"24", b:5, t:"하나님의 목적 천지 재창조", v:"마6:10, 창1:1~2:3, 계21:1~7"},
+      {id:"25", b:5, t:"신천지예수교 증거장막성전", v:"렘31장, 마13장, 눅22장, 계7장, 계15:5, 계21:1"}
+    ]
+  },
+  high: {
+    name: "고등", hasVerse: true,
+    items: [
+      {id:"1-1", t:"계시록 전장의 요약과 결론", v:"계1:1~8"},
+      {id:"1-2", t:"계시록 사건의 시작과 일곱 별과 일곱 금 촛대의 비밀", v:"계1:9~20"},
+      {id:"2", t:"일곱 교회 사자에게 보낸 편지", v:"계2장"},
+      {id:"3", t:"일곱 교회 사자에게 보낸 편지", v:"계3장"},
+      {id:"4", t:"영계 하나님의 보좌와 계열", v:"계4장"},
+      {id:"5", t:"일곱 인으로 봉한 책", v:"계5장"},
+      {id:"6", t:"배도와 선천 해·달·별에 대한 심판", v:"계6장"},
+      {id:"7", t:"새 창조된 영적 새 이스라엘 열두 지파", v:"계7장"},
+      {id:"8", t:"마지막 인과 일곱 나팔", v:"계8장"},
+      {id:"9", t:"무저갱의 황충과 범죄한 천사", v:"계9장"},
+      {id:"10", t:"하늘에서 온 계시 책과 약속의 목자", v:"계10장"},
+      {id:"11", t:"두 증인과 일곱째 나팔", v:"계11장"},
+      {id:"12", t:"용과 하나님과의 전쟁", v:"계12장"},
+      {id:"13", t:"짐승에게 표 받고 배도한 선민", v:"계13장"},
+      {id:"14", t:"처음 익은 열매 시온산 십사만 사천", v:"계14장"},
+      {id:"15", t:"만국이 와서 경배할 증거장막 성전", v:"계15장"},
+      {id:"16", t:"진노의 일곱 대접", v:"계16장"},
+      {id:"17", t:"마귀의 양식 음행의 포도주", v:"계17장"},
+      {id:"18", t:"만국을 무너뜨린 사단과의 결혼", v:"계18장"},
+      {id:"19", t:"영육 어린양의 혼인 잔치", v:"계19장"},
+      {id:"20", t:"순교의 영과 산 자의 첫째 부활", v:"계20장"},
+      {id:"21", t:"약속한 새 하늘 새 땅 신천지", v:"계21장"},
+      {id:"22", t:"생명나무가 있는 거룩한 성", v:"계22장"}
+    ]
+  }
+};
+
+const ORDER_LV = ["elem","mid","high"];
+const KEY = "malsseum_progress_v2";
+
+/* progress store: { elem:{done:{},weak:{}}, mid:{...}, high:{...} } */
+let store = { elem:{done:{},weak:{}}, mid:{done:{},weak:{}}, high:{done:{},weak:{}} };
+try {
+  const raw = localStorage.getItem(KEY);
+  if (raw) {
+    const p = JSON.parse(raw);
+    ORDER_LV.forEach(lv => {
+      if (p[lv]) store[lv] = { done:p[lv].done||{}, weak:p[lv].weak||{} };
+    });
+  }
+} catch(e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e){} }
+
+let level = "mid";
+let mode = "seq";       // seq | shuffle | review
+let order = [];         // array of item ids
+let idx = 0;
+let flipped = false;
+
+const $ = id => document.getElementById(id);
+const items = () => LEVELS[level].items;
+const hasVerse = () => LEVELS[level].hasVerse;
+const hasBlocks = () => !!LEVELS[level].blocks;
+const st = () => store[level];
+const itemById = id => items().find(x => x.id === id);
+
+function shuffleArr(a){
+  a = a.slice();
+  for (let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildOrder(){
+  const all = items().map(x => x.id);
+  if (mode === "review") {
+    order = all.filter(id => st().weak[id]);
+  } else if (mode === "shuffle") {
+    order = shuffleArr(all);
+  } else {
+    order = all;
+  }
+}
+
+function lessonLabel(id){
+  return (level === "high") ? ("제" + id + "과") : ("제" + id + "과");
+}
+function bigNumHtml(id){
+  if (level === "high") return id + "<span>과</span>";
+  return id + "<span>과</span>";
+}
+
+function render(){
+  const total = order.length;
+  $("empty").style.display = "none";
+  $("card").style.display = "flex";
+  $("confRow").style.display = flipped ? "flex" : "none";
+  $("dots").style.display = "flex";
+
+  if (mode === "review" && total === 0){
+    $("card").style.display = "none";
+    $("confRow").style.display = "none";
+    $("dots").style.display = "none";
+    $("empty").style.display = "block";
+    $("count").textContent = "0 / 0";
+    $("bar").style.width = "0%";
+    $("blocktag").style.visibility = "hidden";
+    updateStats();
+    return;
+  }
+
+  if (idx >= total) idx = total - 1;
+  if (idx < 0) idx = 0;
+
+  const id = order[idx];
+  const d = itemById(id);
+
+  $("count").textContent = (idx+1) + " / " + total;
+  $("bar").style.width = (((idx+1)/total)*100) + "%";
+
+  if (hasBlocks() && d.b){
+    $("blocktag").style.visibility = "visible";
+    $("blocktag").textContent = "블록 " + d.b;
+  } else {
+    $("blocktag").style.visibility = "hidden";
+  }
+
+  $("lnum").textContent = lessonLabel(d.id);
+  $("bignum").innerHTML = bigNumHtml(d.id);
+  $("atitle").textContent = d.t;
+
+  // verse handling
+  if (hasVerse() && d.v && d.v.length){
+    $("adiv").style.display = "block";
+    $("averseLabel").style.display = "block";
+    $("averse").style.display = "block";
+    $("averse").textContent = d.v;
+    $("tapHint").textContent = "제목과 성구를 떠올린 뒤 탭하세요";
+  } else {
+    // no verse (elementary level)
+    $("adiv").style.display = "none";
+    $("averseLabel").style.display = "none";
+    $("averse").style.display = "none";
+    $("tapHint").textContent = "제목을 떠올린 뒤 탭하세요";
+  }
+
+  $("wflag").style.display = st().weak[d.id] ? "inline" : "none";
+  $("promptFace").style.display = flipped ? "none" : "flex";
+  $("answerFace").style.display = flipped ? "flex" : "none";
+
+  $("btnPrev").disabled = (idx === 0);
+  $("btnNext").disabled = (idx === total - 1);
+
+  renderDots();
+  updateStats();
+}
+
+function renderDots(){
+  const html = order.map((id, i) => {
+    let cls = "dot";
+    if (i === idx) cls += " cur";
+    else if (st().weak[id]) cls += " weak";
+    else if (st().done[id]) cls += " done";
+    return '<span class="'+cls+'" data-i="'+i+'" title="제'+id+'과"></span>';
+  }).join("");
+  $("dots").innerHTML = html;
+  $("dots").querySelectorAll(".dot").forEach(el => {
+    el.addEventListener("click", e => {
+      e.stopPropagation();
+      idx = parseInt(el.getAttribute("data-i"));
+      flipped = false;
+      render();
+    });
+  });
+}
+
+function updateStats(){
+  const all = items();
+  const done = all.filter(x => st().done[x.id]).length;
+  const weak = all.filter(x => st().weak[x.id]).length;
+  $("statDone").textContent = done;
+  $("statWeak").textContent = weak;
+  $("statLeft").textContent = (all.length - done);
+}
+
+let toastTimer = null;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+function advance(){
+  if (mode === "review"){
+    buildOrder();
+    if (order.length === 0){ flipped = false; render(); return; }
+    if (idx >= order.length) idx = order.length - 1;
+    flipped = false;
+    render();
+    return;
+  }
+  if (idx < order.length - 1){ idx++; }
+  flipped = false;
+  render();
+}
+
+$("card").addEventListener("click", () => { flipped = !flipped; render(); });
+
+$("btnNext").addEventListener("click", e => {
+  e.stopPropagation();
+  if (idx < order.length - 1){ idx++; flipped = false; render(); }
+});
+$("btnPrev").addEventListener("click", e => {
+  e.stopPropagation();
+  if (idx > 0){ idx--; flipped = false; render(); }
+});
+
+$("btnWeak").addEventListener("click", e => {
+  e.stopPropagation();
+  const id = order[idx];
+  st().weak[id] = true;
+  st().done[id] = false;
+  save();
+  toast("제" + id + "과 복습 표시");
+  advance();
+});
+$("btnStrong").addEventListener("click", e => {
+  e.stopPropagation();
+  const id = order[idx];
+  st().done[id] = true;
+  st().weak[id] = false;
+  save();
+  toast("제" + id + "과 외움 ✓");
+  advance();
+});
+
+function setMode(m){
+  mode = m;
+  idx = 0;
+  flipped = false;
+  buildOrder();
+  ["mSeq","mShuffle","mReview"].forEach(x => $(x).classList.remove("on"));
+  if (m === "seq") $("mSeq").classList.add("on");
+  if (m === "shuffle") $("mShuffle").classList.add("on");
+  if (m === "review") $("mReview").classList.add("on");
+  render();
+}
+$("mSeq").addEventListener("click", () => setMode("seq"));
+$("mShuffle").addEventListener("click", () => setMode("shuffle"));
+$("mReview").addEventListener("click", () => setMode("review"));
+
+function setLevel(lv){
+  level = lv;
+  idx = 0;
+  flipped = false;
+  mode = "seq";
+  ["lvElem","lvMid","lvHigh"].forEach(x => $(x).classList.remove("on"));
+  if (lv === "elem") $("lvElem").classList.add("on");
+  if (lv === "mid") $("lvMid").classList.add("on");
+  if (lv === "high") $("lvHigh").classList.add("on");
+  ["mSeq","mShuffle","mReview"].forEach(x => $(x).classList.remove("on"));
+  $("mSeq").classList.add("on");
+  const L = LEVELS[lv];
+  const cnt = L.items.length;
+  $("levelSub").textContent = L.name + " · " + cnt + "과";
+  buildOrder();
+  render();
+}
+$("lvElem").addEventListener("click", () => setLevel("elem"));
+$("lvMid").addEventListener("click", () => setLevel("mid"));
+$("lvHigh").addEventListener("click", () => setLevel("high"));
+
+$("resetBtn").addEventListener("click", () => {
+  const nm = LEVELS[level].name;
+  if (confirm(nm + " 단계의 외운 과와 복습 표시 기록을 지울까요? 다른 단계는 그대로 유지됩니다.")){
+    store[level] = { done:{}, weak:{} };
+    save();
+    setMode("seq");
+    toast(nm + " 기록을 초기화했어요");
+  }
+});
+
+/* init */
+setLevel("mid");
+</script>
+</body>
+</html>
