@@ -97,6 +97,12 @@
   .ans-verse { font-size:17px; font-weight:500; line-height:1.65; color:var(--text); word-break:keep-all; }
   .ans-divider { border:none; border-top:0.5px dashed var(--line2); margin:16px 0; }
 
+  /* ===== 중등 3단계(과 번호 → 제목 → 성구) 화면 ===== */
+  .answer-face.mid-step { flex:1; align-items:center; justify-content:center; text-align:center; }
+  .answer-face.mid-step .ans-title { font-size:27px; font-weight:700; line-height:1.45; }
+  .answer-face.mid-step .ans-verse-label { font-size:13px; color:var(--text2); margin-bottom:10px; letter-spacing:0.3px; }
+  .answer-face.mid-step .ans-verse { font-size:22px; font-weight:600; line-height:1.7; }
+
   .conf-row { display:none; gap:10px; margin-top:14px; }
   .conf-row button {
     flex:1; padding:13px 0; border-radius:var(--radius-sm); font-size:14px; font-weight:600;
@@ -386,7 +392,7 @@ let level = "elemP";
 let mode = "seq";       // seq | shuffle | review
 let order = [];
 let idx = 0;
-let flipped = false;
+let step = 0;           // 0=문제(과 번호), 1=제목, 2=성구(중등 전용)
 let verseOpen = false;  // 초등비유 성경구절 펼침 (카드별 리셋)
 
 const $ = id => document.getElementById(id);
@@ -394,6 +400,8 @@ const items = () => LEVELS[level].items;
 const isParable = () => !!LEVELS[level].isParable;
 const hasVerse = () => !!LEVELS[level].hasVerse;
 const hasBlocks = () => !!LEVELS[level].blocks;
+const isMid = () => level === "mid";
+const stepCount = () => isMid() ? 3 : 2;   // 중등만 3단계(과/제목/성구)
 const st = () => store[level];
 const itemById = id => items().find(x => x.id === id);
 
@@ -452,7 +460,7 @@ function render(){
   const total = order.length;
   $("empty").style.display = "none";
   $("card").style.display = "flex";
-  $("confRow").style.display = flipped ? "flex" : "none";
+  $("confRow").style.display = (step === stepCount() - 1) ? "flex" : "none";
   $("dots").style.display = "flex";
 
   if (mode === "review" && total === 0){
@@ -494,8 +502,8 @@ function render(){
     renderLesson(d);
   }
 
-  $("promptFace").style.display = flipped ? "none" : "flex";
-  $("answerFace").style.display = flipped ? "flex" : "none";
+  $("promptFace").style.display = (step === 0) ? "flex" : "none";
+  $("answerFace").style.display = (step === 0) ? "none" : "flex";
 
   $("btnPrev").disabled = (idx === 0);
   $("btnNext").disabled = (idx === total - 1);
@@ -509,10 +517,30 @@ function renderLesson(d){
   $("bignum").style.display = "block";
   if ($("bigword")) $("bigword").style.display = "none";
   $("bignum").innerHTML = d.id + "<span>과</span>";
+  $("elemAns").style.display = "none";
 
+  // 중등: 과 번호 → 제목 → 성구, 세 화면으로 나눠서 보여주기
+  if (isMid()){
+    $("answerFace").classList.add("mid-step");
+    const showTitle = (step === 1);
+    const showVerse = (step === 2);
+
+    $("atitle").style.display = showTitle ? "block" : "none";
+    $("atitle").textContent = d.t;
+
+    $("adiv").style.display = "none";
+    $("averseLabel").style.display = showVerse ? "block" : "none";
+    $("averse").style.display = showVerse ? "block" : "none";
+    $("averse").textContent = d.v || "";
+
+    $("tapHint").textContent = "탭하면 제목 → 성구 순으로 나와요";
+    return;
+  }
+
+  // 초등 / 고등: 과 번호 → (제목 + 성구) 한 번에
+  $("answerFace").classList.remove("mid-step");
   $("atitle").style.display = "block";
   $("atitle").textContent = d.t;
-  $("elemAns").style.display = "none";
 
   if (hasVerse() && d.v && d.v.length){
     $("adiv").style.display = "block";
@@ -531,6 +559,7 @@ function renderLesson(d){
 /* 초등비유: 단어 → 뜻+성구 → (성경구절 버튼) */
 function renderParable(d){
   const c = d._c;
+  $("answerFace").classList.remove("mid-step");
   $("bignum").style.display = "none";
   $("atitle").style.display = "none";
   $("adiv").style.display = "none";
@@ -601,7 +630,7 @@ function renderDots(){
     el.addEventListener("click", e => {
       e.stopPropagation();
       idx = parseInt(el.getAttribute("data-i"));
-      flipped = false;
+      step = 0;
       verseOpen = false;
       render();
     });
@@ -633,21 +662,21 @@ function curName(d){
 function advance(){
   if (mode === "review"){
     buildOrder();
-    if (order.length === 0){ flipped = false; verseOpen = false; render(); return; }
+    if (order.length === 0){ step = 0; verseOpen = false; render(); return; }
     if (idx >= order.length) idx = order.length - 1;
-    flipped = false; verseOpen = false;
+    step = 0; verseOpen = false;
     render();
     return;
   }
   if (idx < order.length - 1){ idx++; }
-  flipped = false; verseOpen = false;
+  step = 0; verseOpen = false;
   render();
 }
 
 $("card").addEventListener("click", (e) => {
   if (e.target.closest("#verseToggle") || e.target.closest("#verseBox")) return;
-  flipped = !flipped;
-  if (!flipped) verseOpen = false;
+  step = (step + 1) % stepCount();
+  if (step === 0) verseOpen = false;
   render();
 });
 
@@ -659,11 +688,11 @@ $("verseToggle").addEventListener("click", e => {
 
 $("btnNext").addEventListener("click", e => {
   e.stopPropagation();
-  if (idx < order.length - 1){ idx++; flipped = false; verseOpen = false; render(); }
+  if (idx < order.length - 1){ idx++; step = 0; verseOpen = false; render(); }
 });
 $("btnPrev").addEventListener("click", e => {
   e.stopPropagation();
-  if (idx > 0){ idx--; flipped = false; verseOpen = false; render(); }
+  if (idx > 0){ idx--; step = 0; verseOpen = false; render(); }
 });
 
 $("btnWeak").addEventListener("click", e => {
@@ -684,7 +713,7 @@ $("btnStrong").addEventListener("click", e => {
 });
 
 function setMode(m){
-  mode = m; idx = 0; flipped = false; verseOpen = false;
+  mode = m; idx = 0; step = 0; verseOpen = false;
   buildOrder();
   ["mSeq","mShuffle","mReview"].forEach(x => $(x).classList.remove("on"));
   if (m === "seq") $("mSeq").classList.add("on");
@@ -698,7 +727,7 @@ $("mReview").addEventListener("click", () => setMode("review"));
 
 const LV_BTN = { elemP:"lvElemP", elem:"lvElem", mid:"lvMid", high:"lvHigh" };
 function setLevel(lv){
-  level = lv; idx = 0; flipped = false; verseOpen = false; mode = "seq";
+  level = lv; idx = 0; step = 0; verseOpen = false; mode = "seq";
   Object.values(LV_BTN).forEach(bid => $(bid).classList.remove("on"));
   $(LV_BTN[lv]).classList.add("on");
   ["mSeq","mShuffle","mReview"].forEach(x => $(x).classList.remove("on"));
